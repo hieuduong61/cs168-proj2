@@ -77,7 +77,7 @@ class DVRouter(DVRouterBase):
         assert port in self.ports.get_all_ports(), "Link should be up, but is not."
 
         ##### Begin Stage 1 #####
-
+        self.table[host] = TableEntry(dst=host, port=port, latency=0.1, expire_time=FOREVER) 
         ##### End Stage 1 #####
 
     def handle_data_packet(self, packet, in_port):
@@ -92,7 +92,14 @@ class DVRouter(DVRouterBase):
         """
         
         ##### Begin Stage 2 #####
-
+        dst = packet.dst
+        for key in self.table:
+            if self.table[key][1] == in_port:
+                continue
+            if self.table[key][2] >= INFINITY:
+                continue
+            if dst == key:
+                self.send(packet, self.table[key][1])
         ##### End Stage 2 #####
 
     def send_routes(self, force=False, single_port=None):
@@ -108,7 +115,16 @@ class DVRouter(DVRouterBase):
         """
         
         ##### Begin Stages 3, 6, 7, 8, 10 #####
+        if force == True:
+            if single_port != None:
+                for dst in self.table:
+                    self.send_route(single_port, self.table[dst][0], self.table[dst][2])
+                return
 
+            for port in list(self.ports.get_all_ports()):
+                
+                for dst in self.table:
+                    self.send_route(port, self.table[dst][0], self.table[dst][2])
         ##### End Stages 3, 6, 7, 8, 10 #####
 
     def expire_routes(self):
