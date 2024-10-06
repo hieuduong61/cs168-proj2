@@ -132,9 +132,9 @@ class DVRouter(DVRouterBase):
                 return
 
             for port in list(self.ports.get_all_ports()):
-                
                 for dst in self.table:
                     self.send_route(port, self.table[dst][0], self.table[dst][2])
+            return
         
         ##### End Stages 3, 6, 7, 8, 10 #####
 
