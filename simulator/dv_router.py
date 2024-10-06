@@ -77,7 +77,7 @@ class DVRouter(DVRouterBase):
         assert port in self.ports.get_all_ports(), "Link should be up, but is not."
 
         ##### Begin Stage 1 #####
-        self.table[host] = TableEntry(dst=host, port=port, latency=0.1, expire_time=FOREVER) 
+        self.table[host] = TableEntry(dst=host, port=port, latency=self.ports.get_latency(port), expire_time=FOREVER) 
         ##### End Stage 1 #####
 
     def handle_data_packet(self, packet, in_port):
@@ -115,6 +115,16 @@ class DVRouter(DVRouterBase):
         """
         
         ##### Begin Stages 3, 6, 7, 8, 10 #####
+        print(self.ports.get_all_ports())
+        print(self.table)
+        if self.SPLIT_HORIZON:
+            for p in self.ports.get_all_ports():
+                for dst in self.table:
+                    if p == self.table[dst][1]:
+                        continue
+                    self.send_route(p, self.table[dst][0], self.table[dst][2])
+            return
+        
         if force == True:
             if single_port != None:
                 for dst in self.table:
@@ -125,6 +135,7 @@ class DVRouter(DVRouterBase):
                 
                 for dst in self.table:
                     self.send_route(port, self.table[dst][0], self.table[dst][2])
+        
         ##### End Stages 3, 6, 7, 8, 10 #####
 
     def expire_routes(self):
@@ -134,7 +145,12 @@ class DVRouter(DVRouterBase):
         """
         
         ##### Begin Stages 5, 9 #####
-
+        
+        temp = Table()
+        for dst in self.table:
+            if api.current_time() < self.table[dst][3]:
+                temp[dst]=TableEntry(dst, self.table[dst][1], self.table[dst][2],  self.table[dst][3])
+        self.table = temp
         ##### End Stages 5, 9 #####
 
     def handle_route_advertisement(self, route_dst, route_latency, port):
@@ -146,11 +162,25 @@ class DVRouter(DVRouterBase):
         :param port: the port that the advertisement arrived on.
         :return: nothing.
         """
-        
         ##### Begin Stages 4, 10 #####
-
+        if route_dst not in self.table:
+            self.table[route_dst] = TableEntry(dst=route_dst, port=port, latency=route_latency+self.ports.get_latency(port), expire_time=api.current_time()+self.ROUTE_TTL)
+            return
+        else: 
+            if port == self.table[route_dst][1]:
+                self.table[route_dst] = TableEntry(dst=route_dst, port=port, latency=route_latency+self.ports.get_latency(port), expire_time=api.current_time()+self.ROUTE_TTL)
+            
+            if self.table[route_dst][2] > route_latency + self.ports.get_latency(port):
+                self.table[route_dst] = TableEntry(dst=route_dst, port=port, latency=route_latency+self.ports.get_latency(port), expire_time=api.current_time()+self.ROUTE_TTL)
+                return
+        
+        
+        
+        
         ##### End Stages 4, 10 #####
-
+        
+        #check if advertised route is better
+        
     def handle_link_up(self, port, latency):
         """
         Called by the framework when a link attached to this router goes up.
