@@ -159,6 +159,8 @@ class DVRouter(DVRouterBase):
         for dst in self.table:
             if api.current_time() < self.table[dst][3]:
                 temp[dst]=TableEntry(dst, self.table[dst][1], self.table[dst][2],  self.table[dst][3])
+            elif self.POISON_EXPIRED:
+                temp[dst]=TableEntry(dst, self.table[dst][1], INFINITY,  api.current_time() + self.ROUTE_TTL)
         self.table = temp
         ##### End Stages 5, 9 #####
 
