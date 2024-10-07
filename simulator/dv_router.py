@@ -132,7 +132,7 @@ class DVRouter(DVRouterBase):
                         self.send_route(p, self.table[dst][0], INFINITY)
                     else:
                         self.send_route(p, self.table[dst][0], self.table[dst][2])
-            return
+            return 
         
         if force == True:
             if single_port != None:
