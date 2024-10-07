@@ -122,7 +122,7 @@ class DVRouter(DVRouterBase):
                 for dst in self.table:
                     if p == self.table[dst][1]:
                         continue
-                    self.send_route(p, self.table[dst][0], self.table[dst][2])
+                    self.send_route(p, self.table[dst][0], min(self.table[dst][2], INFINITY))
             return
         
         if self.POISON_REVERSE:
@@ -131,18 +131,18 @@ class DVRouter(DVRouterBase):
                     if p == self.table[dst][1]:
                         self.send_route(p, self.table[dst][0], INFINITY)
                     else:
-                        self.send_route(p, self.table[dst][0], self.table[dst][2])
+                        self.send_route(p, self.table[dst][0], min(self.table[dst][2], INFINITY))
             return 
         
         if force == True:
             if single_port != None:
                 for dst in self.table:
-                    self.send_route(single_port, self.table[dst][0], self.table[dst][2])
+                    self.send_route(single_port, self.table[dst][0], min(self.table[dst][2], INFINITY))
                 return
 
             for port in list(self.ports.get_all_ports()):
                 for dst in self.table:
-                    self.send_route(port, self.table[dst][0], self.table[dst][2])
+                    self.send_route(port, self.table[dst][0], min(self.table[dst][2], INFINITY))
             return
         
         ##### End Stages 3, 6, 7, 8, 10 #####
