@@ -125,6 +125,15 @@ class DVRouter(DVRouterBase):
                     self.send_route(p, self.table[dst][0], self.table[dst][2])
             return
         
+        if self.POISON_REVERSE:
+            for p in self.ports.get_all_ports():
+                for dst in self.table:
+                    if p == self.table[dst][1]:
+                        self.send_route(p, self.table[dst][0], INFINITY)
+                    else:
+                        self.send_route(p, self.table[dst][0], self.table[dst][2])
+            return
+        
         if force == True:
             if single_port != None:
                 for dst in self.table:
