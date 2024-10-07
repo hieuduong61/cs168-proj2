@@ -246,7 +246,8 @@ class DVRouter(DVRouterBase):
         self.ports.add_port(port, latency)
 
         ##### Begin Stage 10B #####
-
+        # if self.SEND_ON_LINK_UP:
+        #     self.send_routes(force=False, single_port=port)
         ##### End Stage 10B #####
 
     def handle_link_down(self, port):
@@ -259,7 +260,19 @@ class DVRouter(DVRouterBase):
         self.ports.remove_port(port)
 
         ##### Begin Stage 10B #####
+        # if self.POISON_ON_LINK_DOWN:
+        #     for dst in self.table:
+        #         self.table[dst] = TableEntry(self.table[0], port, INFINITY, self.table[dst][3])
+        #     self.send_routes()
+        #     return
 
+        # temp = []
+        # for dst in self.table:
+        #     if self.table[dst][1] == port:
+        #         temp.append(dst)
+            
+        # for each in temp:
+        #     self.table.pop(each)
         ##### End Stage 10B #####
 
     # Feel free to add any helper methods!
