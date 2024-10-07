@@ -58,7 +58,9 @@ class DVRouter(DVRouterBase):
         self.table.owner = self
 
         ##### Begin Stage 10A #####
-
+        # Keep track of advertisement history
+        # pretty much a copy of self. table, record the most recent advertisement sent out of each port for each destination
+        self.history = {} 
         ##### End Stage 10A #####
 
     def add_static_route(self, host, port):
@@ -115,34 +117,71 @@ class DVRouter(DVRouterBase):
         """
         
         ##### Begin Stages 3, 6, 7, 8, 10 #####
-        print(self.ports.get_all_ports())
-        print(self.table)
+        # print(self.ports.get_all_ports())
+        # print(self.table)
         if self.SPLIT_HORIZON:
             for p in self.ports.get_all_ports():
                 for dst in self.table:
+                    latency = min(self.table[dst][2], INFINITY)
                     if p == self.table[dst][1]:
                         continue
-                    self.send_route(p, self.table[dst][0], min(self.table[dst][2], INFINITY))
-            return
+                    if (p, dst) not in self.history:
+                        self.send_route(p, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                        self.update_history(p, self.table[dst][0], latency)
+                    else:
+                        self.send_route(p, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                        self.update_history(p, self.table[dst][0], latency) 
+                    
+            return 
         
         if self.POISON_REVERSE:
             for p in self.ports.get_all_ports():
                 for dst in self.table:
                     if p == self.table[dst][1]:
-                        self.send_route(p, self.table[dst][0], INFINITY)
+                        if (p, dst) not in self.history:
+                            self.send_route(p, self.table[dst][0], INFINITY)
+                            self.update_history(p, self.table[dst][0], INFINITY)
+                        else:
+                            self.send_route(p, self.table[dst][0], INFINITY)
+                            self.update_history(p, self.table[dst][0], INFINITY)
                     else:
-                        self.send_route(p, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                        latency = min(self.table[dst][2], INFINITY)
+                        if (p, dst) not in self.history:
+                            self.send_route(p, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                            self.update_history(p, self.table[dst][0], latency)
+                        else:
+                            self.send_route(p, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                            self.update_history(p, self.table[dst][0], latency)
             return 
         
         if force == True:
             if single_port != None:
                 for dst in self.table:
                     self.send_route(single_port, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                    # update_history(single_port, self.table[dst][0], min(self.table[dst][2], INFINITY))
                 return
 
             for port in list(self.ports.get_all_ports()):
                 for dst in self.table:
                     self.send_route(port, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                    # self.update_history(port, self.table[dst][0], min(self.table[dst][2], INFINITY))
+            return
+        else: # Stage 10: 
+        # TODO: implement incremental triggered updates
+        # For each dst in table
+        # if dst is in table different from 
+        #   if dst is not in table
+            for port in list(self.ports.get_all_ports()):
+                for dst in self.table:
+                    latency = min(self.table[dst][2], INFINITY)
+                    if (port, dst) not in self.history:
+                        self.send_route(port, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                        # self.history[dst] = [self.table[dst][0], self.table[dst][1], self.table[dst][2]]
+                        self.update_history(port, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                    else:
+                        print("Yayyy")
+                        self.send_route(port, self.table[dst][0], min(self.table[dst][2], INFINITY))
+                        self.update_history(port, self.table[dst][0], min(self.table[dst][2], INFINITY))
             return
         
         ##### End Stages 3, 6, 7, 8, 10 #####
@@ -176,14 +215,18 @@ class DVRouter(DVRouterBase):
         ##### Begin Stages 4, 10 #####
         if route_dst not in self.table:
             self.table[route_dst] = TableEntry(dst=route_dst, port=port, latency=route_latency+self.ports.get_latency(port), expire_time=api.current_time()+self.ROUTE_TTL)
+            self.send_routes(force=False)
             return
         else: 
             if port == self.table[route_dst][1]:
                 self.table[route_dst] = TableEntry(dst=route_dst, port=port, latency=route_latency+self.ports.get_latency(port), expire_time=api.current_time()+self.ROUTE_TTL)
+                self.send_routes(force=False)
             
             if self.table[route_dst][2] > route_latency + self.ports.get_latency(port):
                 self.table[route_dst] = TableEntry(dst=route_dst, port=port, latency=route_latency+self.ports.get_latency(port), expire_time=api.current_time()+self.ROUTE_TTL)
-                return
+                self.send_routes(force=False)
+            
+            return
         
         
         
@@ -220,3 +263,18 @@ class DVRouter(DVRouterBase):
         ##### End Stage 10B #####
 
     # Feel free to add any helper methods!
+    def compare_history(self, dst, port):
+        # print("Testing begins")
+        # print(str(self.table[dst]))
+        # print(self.table[dst][0], self.table[dst][1], self.table[dst][2])
+        # print("Testing ends")
+        # return (self.history[(port, dst)][0] == self.table[dst][0] # destination
+        #     and self.history[(port, dst)][1] == self.table[dst][2]) # latency
+        return self.history[(port, dst)] == self.table[dst][2] 
+    
+    def update_history(self, port, dst, latency):
+        print(port, dst, latency)
+        self.history[(port, dst)] = latency
+        # print("History updated")
+        # print(dst)
+        # print(self.history[dst])
